@@ -17,7 +17,7 @@ const ptCol = (i) => (i >= 12 ? i - 12 : 11 - i);
 
 /* ------------------------------------------------------------------ settings & state */
 const KEY_G = 'bgx.game.v1', KEY_S = 'bgx.settings.v1';
-let S = { names: ['Player 1', 'Player 2'], matchTo: 3, limit: 0, sound: true, cube: true, autoDone: false };
+let S = { names: ['Player 1', 'Player 2'], matchTo: 3, limit: 0, sound: true, cube: true, autoDone: false, layout: 'auto' };
 let G = null;
 let U = 6;
 let busy = false, paused = false, modalOpen = false, sel = null, endT = null;
@@ -174,13 +174,14 @@ function fit() {
 
 /* ------------------------------------------------------------------ dice */
 const FACE = { 1: [0, 0], 2: [-90, 0], 3: [0, -90], 4: [0, 90], 5: [90, 0], 6: [0, 180] };
-const TILT = [-22, -26];
+const TILT = [0, 0]; // dice settle flat, number facing up
 const tf = (fx, fy) => `rotateX(${TILT[0]}deg) rotateY(${TILT[1]}deg) rotateX(${fx}deg) rotateY(${fy}deg)`;
 const DICE_CX = RIGHT0 + 31.2;
-function dicePos(i) { return { x: DICE_CX + (i ? 3 : -14.5) + dice[i].jx, y: 44.5 + dice[i].jy }; }
+function dicePos(i) { return { x: DICE_CX + (i ? 2 : -10) + dice[i].jx, y: 46 + dice[i].jy }; }
 function positionDice() {
   dice.forEach((d, i) => {
-    if (d.jx === undefined) { d.jx = 0; d.jy = 0; }
+    if (d.jx === undefined) { d.jx = 0; d.jy = 0; d.rj = 0; }
+    d.rz = faceRz(i) + d.rj;
     const p = dicePos(i);
     d.el.style.left = p.x * U + 'px'; d.el.style.top = p.y * U + 'px';
     d.el.style.transform = `translate(0,0) scale(1) rotate(${d.rz}deg)`;
@@ -207,7 +208,7 @@ function refreshDiceUsed() {
 }
 function animateDice() {
   dice.forEach((d, i) => {
-    d.jx = (Math.random() - 0.5) * 5; d.jy = (Math.random() - 0.5) * 9; d.rz = Math.round((Math.random() - 0.5) * 70);
+    d.jx = (Math.random() - 0.5) * 4; d.jy = (Math.random() - 0.5) * 7; d.rj = Math.round((Math.random() - 0.5) * 22);
   });
   positionDice(); setDiceFaces();
   dice.forEach((d, i) => {
@@ -229,11 +230,11 @@ function animateDice() {
 /* ------------------------------------------------------------------ toast / modal */
 let toastT = null;
 function toast(msg, ms = 1700) {
-  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  const t = $('#toast'); t.textContent = msg; t.classList.toggle('flip', tableOn() && G.turn === B); t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), ms);
 }
-function modal(build) {
-  const sheet = $('#sheet'); sheet.innerHTML = ''; build(sheet);
+function modal(build, face) {
+  const sheet = $('#sheet'); sheet.innerHTML = ''; sheet.classList.toggle('flip', tableOn() && face === B); build(sheet);
   $('#overlay').classList.add('on'); modalOpen = true; renderHud();
 }
 function closeModal() { $('#overlay').classList.remove('on'); modalOpen = false; renderHud(); }
@@ -255,21 +256,49 @@ const cubeEnabled = () => S.cube && S.matchTo !== 1;
 const nm = (p) => S.names[p] || (p === W ? 'White' : 'Black');
 let lastCubeKey = '';
 
+const tableOn = () => $('#app').classList.contains('table');
+const faceRz = (i) => (tableOn() && G && G.dCol[i] === 'b' ? 180 : 0);
+const GATED = ['undo', 'done', 'double', 'resign'];
+
+function updateButtons() {
+  const noMoves = G.phase === 'move' && G.rem.length > 0 && G.legal && G.legal.length === 0;
+  const done = G.phase === 'move' && (G.rem.length === 0 || noMoves) && !busy;
+  const st = {
+    undo: { d: !(G.phase === 'move' && G.undo.length && !busy) },
+    done: { d: !done, ready: done },
+    double: { h: !cubeEnabled(), d: !canDouble() || busy || paused },
+    resign: { h: !(G.phase === 'roll' && E.canResign(G.s, G.turn)), d: busy || paused },
+    pause: { d: G.phase === 'over' },
+    menu: {},
+  };
+  document.querySelectorAll('[data-act]').forEach((b) => {
+    const act = b.dataset.act, f = st[act]; if (!f) return;
+    let d = !!f.d, h = !!f.h;
+    const side = b.closest('.side');
+    if (side && GATED.includes(act) && +side.dataset.p !== G.turn) { d = true; if (act === 'resign') h = true; }
+    b.hidden = h; b.disabled = d; b.classList.toggle('ready', !!f.ready && !d);
+    if (act === 'pause') b.querySelector('span').textContent = paused ? 'Resume' : 'Pause';
+  });
+}
+
 function renderHud() {
-  [W, B].forEach((p) => {
-    const c = $('#card' + p);
+  const table = tableOn();
+  document.querySelectorAll('.card').forEach((c) => {
+    const p = +c.dataset.p;
     c.classList.toggle('active', G.phase !== 'over' && G.phase !== 'open' && G.turn === p);
     $('.name', c).textContent = nm(p);
     $('.score', c).textContent = `★ ${G.scores[p]}${S.matchTo ? ' / ' + S.matchTo : ''}`;
     $('.pip', c).textContent = `${E.pips(G.s, p)} pips`;
   });
   renderClocks();
-  // cube
-  const key = `${cubeEnabled()}|${G.cube.v}|${G.cube.o}`;
+  // cube: centred (HUD, or the gap in the tray when two-sided) until someone owns it
+  const key = `${cubeEnabled()}|${G.cube.v}|${G.cube.o}|${table}`;
   document.querySelectorAll('.cube3d').forEach((x) => x.remove());
   if (cubeEnabled()) {
     const c = el('div', 'cube3d' + (key !== lastCubeKey ? ' pop' : ''), String(G.cube.v === 1 ? 64 : G.cube.v));
-    (G.cube.o === null ? $('#cubeSlotC') : $('#card' + G.cube.o + ' .cubeSlot')).append(c);
+    const slot = G.cube.o === null ? (table ? $('#cubeBoard') : $('#cubeSlotC'))
+      : $(`${table ? '.side' : '#hud'} .card[data-p="${G.cube.o}"] .cubeSlot`);
+    slot.append(c);
   }
   lastCubeKey = key;
   // status
@@ -279,25 +308,21 @@ function renderHud() {
   else if (G.phase === 'roll') st = `${esc(nm(p))} to roll`;
   else if (G.phase === 'move') st = G.rem.length && G.legal && G.legal.length ? `${esc(nm(p))} to move` : (G.rem.length ? 'No legal moves' : 'Turn complete');
   else if (G.phase === 'over') st = 'Game over';
-  $('#status').innerHTML = `${st}<small>${esc(sub)}</small>`;
-  // buttons
+  document.querySelectorAll('#status, .sstatus').forEach((x) => { x.innerHTML = `${st}<small>${esc(sub)}</small>`; });
+  // controls
   const canRoll = (G.phase === 'roll' || G.phase === 'open') && !busy && !paused && !modalOpen;
-  $('#rollBtn').hidden = !canRoll;
-  $('#rollBtn small').textContent = G.phase === 'open' ? 'opening throw' : 'tap to throw';
-  $('#undoBtn').disabled = !(G.phase === 'move' && G.undo.length && !busy);
-  const noMoves = G.phase === 'move' && G.rem.length > 0 && G.legal && G.legal.length === 0;
-  const done = G.phase === 'move' && (G.rem.length === 0 || noMoves) && !busy;
-  const dn = $('#doneBtn'); dn.disabled = !done; dn.classList.toggle('ready', done);
-  const dbl = $('#doubleBtn'); dbl.hidden = !cubeEnabled(); dbl.disabled = !canDouble() || busy || paused;
-  const rs = $('#resignBtn'); rs.hidden = !(G.phase === 'roll' && E.canResign(G.s, G.turn)); rs.disabled = busy || paused;
+  const flipB = table && G.turn === B;
+  const rb = $('#rollBtn');
+  rb.hidden = !canRoll; rb.classList.toggle('flip', flipB && G.phase === 'roll');
+  $('small', rb).textContent = G.phase === 'open' ? 'opening throw' : 'tap to throw';
+  $('#board').classList.toggle('flipB', flipB);
+  updateButtons();
   $('#soundBtn').classList.toggle('off', !S.sound);
-  $('#pauseBtn').disabled = G.phase === 'over';
-  $('#pauseBtn span').textContent = paused ? 'Resume' : 'Pause';
   renderLabels();
 }
 function renderClocks() {
-  [W, B].forEach((p) => {
-    const c = $('#card' + p), lcd = $('.lcd', c), fuse = $('.fuse i', c), total = $('.total', c);
+  document.querySelectorAll('.card').forEach((c) => {
+    const p = +c.dataset.p, lcd = $('.lcd', c), fuse = $('.fuse i', c), total = $('.total', c);
     const active = G.phase !== 'over' && G.phase !== 'open' && G.turn === p;
     if (S.limit) {
       lcd.textContent = fmt(active ? G.turnLeft : S.limit * 1000);
@@ -309,6 +334,29 @@ function renderClocks() {
       fuse.style.transform = 'scaleX(0)'; total.textContent = 'thinking time';
     }
   });
+}
+
+/* two-sided table layout: a card + controls strip facing each player */
+const touchy = () => (window.matchMedia && matchMedia('(pointer:coarse)').matches) || navigator.maxTouchPoints > 0;
+const tableWanted = () => S.layout === 'table' || (S.layout === 'auto' && touchy());
+function buildSides() {
+  if ($('#side0')) return;
+  [B, W].forEach((p) => {
+    const s = el('section', 'side'); s.id = 'side' + p; s.dataset.p = p;
+    const inner = el('div', 'sinner');
+    const card = $('#card' + p).cloneNode(true); card.removeAttribute('id');
+    const ctl = el('div', 'sctl');
+    ['undo', 'resign', 'double', 'done', 'pause', 'menu'].forEach((a) => {
+      const b = $(`#bar [data-act="${a}"]`).cloneNode(true); b.removeAttribute('id'); ctl.append(b);
+    });
+    inner.append(card, el('div', 'sstatus'), ctl); s.append(inner); $('#app').append(s);
+  });
+}
+function applyMode() {
+  const t = tableWanted();
+  if (t) buildSides();
+  $('#app').classList.toggle('table', t);
+  lastCubeKey = ''; renderHud(); positionDice(); fit();
 }
 
 /* ------------------------------------------------------------------ selection / destination markers */
@@ -459,7 +507,7 @@ function offerDouble() {
     a.append(btn('Pass', 'danger', () => { closeModal(); finishGame(p, 'pass'); }));
     a.append(btn('Cancel', '', closeModal));
     sh.append(a);
-  });
+  }, o);
 }
 
 function offerResign() {
@@ -472,7 +520,7 @@ function offerResign() {
     a.append(btn('Resign', 'danger', () => { closeModal(); finishGame(o, 'resign'); }));
     a.append(btn('Play on', 'primary', closeModal));
     sh.append(a);
-  });
+  }, p);
 }
 
 /* ------------------------------------------------------------------ game end */
@@ -553,14 +601,20 @@ document.addEventListener('touchmove', (e) => { if (!e.target.closest('.sheet'))
 
 /* ------------------------------------------------------------------ buttons */
 $('#rollBtn').addEventListener('click', () => { audio.unlock(); doRoll(); });
-$('#undoBtn').addEventListener('click', undo);
-$('#doneBtn').addEventListener('click', () => { audio.click(); endTurn(); });
-$('#resignBtn').addEventListener('click', () => { audio.unlock(); audio.click(); offerResign(); });
-$('#doubleBtn').addEventListener('click', () => { audio.unlock(); offerDouble(); });
 $('#soundBtn').addEventListener('click', () => { audio.unlock(); S.sound = !S.sound; saveS(); audio.click(); renderHud(); });
-$('#pauseBtn').addEventListener('click', () => setPaused(!paused));
 $('#pause').addEventListener('click', () => setPaused(false));
-$('#menuBtn').addEventListener('click', () => { audio.unlock(); openMenu(); });
+const ACT = {
+  undo,
+  done: () => { audio.click(); endTurn(); },
+  double: () => { audio.unlock(); offerDouble(); },
+  resign: () => { audio.unlock(); audio.click(); offerResign(); },
+  pause: () => setPaused(!paused),
+  menu: () => { audio.unlock(); openMenu(); },
+};
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (b && !b.disabled && ACT[b.dataset.act]) ACT[b.dataset.act]();
+});
 function setPaused(v) {
   if (G.phase === 'over' && v) return;
   paused = v; $('#pause').classList.toggle('on', v); audio.click(); renderHud();
@@ -580,6 +634,7 @@ function openMenu() {
     row('Turn timer', seg([[0, 'Off'], [30, '30s'], [60, '60s'], [90, '90s'], [180, '3m']], S.limit, (v) => { S.limit = v; saveS(); G.turnLeft = v * 1000; renderHud(); }));
     row('Doubling cube', seg([[true, 'On'], [false, 'Off']], S.cube, (v) => { S.cube = v; saveS(); renderHud(); }));
     row('Auto end turn', seg([[false, 'Off'], [true, 'On']], S.autoDone, (v) => { S.autoDone = v; saveS(); }));
+    row('Layout', seg([['auto', 'Auto'], ['table', 'Two-sided'], ['single', 'Single']], S.layout, (v) => { S.layout = v; saveS(); applyMode(); }));
     row('Sound', seg([[true, 'On'], [false, 'Off']], S.sound, (v) => { S.sound = v; saveS(); audio.unlock(); audio.click(); renderHud(); }));
     sh.append(el('p', 'fine', 'Tap a checker, then tap a glowing point — or drag it. Tap a far point to play both dice at once.'));
     const a = el('div', 'actions');
@@ -631,10 +686,12 @@ if (!loadGame()) newGame(false);
 if (G.phase === 'move') { refreshLegal(); }
 else G.legal = [];
 busy = false;
+board.classList.add('boot');
+requestAnimationFrame(() => requestAnimationFrame(() => board.classList.remove('boot')));
 new ResizeObserver(fit).observe($('#stage'));
 window.addEventListener('orientationchange', () => setTimeout(fit, 150));
 fit();
-setDiceFaces(); refreshDiceUsed(); updateHints(); renderHud();
+setDiceFaces(); refreshDiceUsed(); updateHints(); applyMode();
 keepAwake();
 if (G.phase === 'move' && G.rem.length && !G.legal.length) endT = setTimeout(endTurn, 1200);
 if (G.phase === 'over' && G.result) { /* show final board; Menu → New game */ }

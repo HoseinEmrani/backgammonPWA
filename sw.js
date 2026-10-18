@@ -1,4 +1,4 @@
-const CACHE = 'backgammon-v2';
+const CACHE = 'backgammon-v3';
 const ASSETS = [
   './', 'index.html', 'style.css', 'engine.js', 'app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
