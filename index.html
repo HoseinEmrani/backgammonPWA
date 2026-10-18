@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Backgammon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1b0f07">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Backgammon">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header id="hud">
+    <section class="card" id="card0">
+      <div class="coin w"></div>
+      <div class="who"><div class="name"></div><div class="stats"><span class="score"></span><span class="pip"></span></div></div>
+      <div class="clock"><div class="lcd">0:00</div><div class="fuse"><i></i></div><div class="total"></div></div>
+      <div class="cubeSlot"></div>
+    </section>
+    <section id="center">
+      <div id="cubeSlotC"></div>
+      <div id="status"></div>
+      <div id="matchinfo"></div>
+    </section>
+    <section class="card" id="card1">
+      <div class="coin b"></div>
+      <div class="who"><div class="name"></div><div class="stats"><span class="score"></span><span class="pip"></span></div></div>
+      <div class="clock"><div class="lcd">0:00</div><div class="fuse"><i></i></div><div class="total"></div></div>
+      <div class="cubeSlot"></div>
+    </section>
+  </header>
+
+  <main id="stage">
+    <div id="board">
+      <div class="half" id="half0"></div>
+      <div class="half" id="half1"></div>
+      <div id="points"></div>
+      <div id="labels"></div>
+      <div class="bar"><i class="hinge h1"></i><i class="hinge h2"></i></div>
+      <div class="tray" id="trayTop"></div>
+      <div class="tray" id="trayBot"></div>
+      <div id="marks"></div>
+      <div id="pieces"></div>
+      <div id="dice"></div>
+      <div id="toast"></div>
+      <button id="rollBtn" class="roll"><b>ROLL</b><small>tap to throw</small></button>
+      <div id="pause"><div class="plaque">Paused<small>tap to resume</small></div></div>
+    </div>
+  </main>
+
+  <footer id="bar">
+    <div class="grp">
+      <button class="btn" id="undoBtn"><svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h10a6 6 0 0 1 0 12" transform="translate(0 -3)"/></svg><span>Undo</span></button>
+      <button class="btn" id="pauseBtn"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg><span>Pause</span></button>
+    </div>
+    <div class="grp">
+      <button class="btn danger" id="resignBtn" hidden><svg viewBox="0 0 24 24"><path d="M6 21V4M6 4h11l-2.5 4L17 12H6"/></svg><span>Resign</span></button>
+      <button class="btn" id="doubleBtn"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 9h6M9 15h6"/></svg><span>Double</span></button>
+      <button class="btn primary" id="doneBtn"><span>End Turn</span><svg viewBox="0 0 24 24"><path d="M5 12l5 5L19 7"/></svg></button>
+    </div>
+    <div class="grp">
+      <button class="btn icon" id="soundBtn" aria-label="Sound"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg></button>
+      <button class="btn" id="menuBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg><span>Menu</span></button>
+    </div>
+  </footer>
+
+  <div id="overlay"><div class="sheet" id="sheet"></div></div>
+</div>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
