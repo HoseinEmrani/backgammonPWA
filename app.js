@@ -288,7 +288,7 @@ function renderHud() {
     c.classList.toggle('active', G.phase !== 'over' && G.phase !== 'open' && G.turn === p);
     $('.name', c).textContent = nm(p);
     $('.score', c).textContent = `★ ${G.scores[p]}${S.matchTo ? ' / ' + S.matchTo : ''}`;
-    $('.pip', c).textContent = `${E.pips(G.s, p)} pips`;
+    $('.ppip', c).textContent = `${E.pips(G.s, p)} pips`;
   });
   renderClocks();
   // cube: centred (HUD, or the gap in the tray when two-sided) until someone owns it

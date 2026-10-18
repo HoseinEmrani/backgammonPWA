@@ -379,3 +379,4 @@ body {
 .stats { white-space: nowrap; }
 .sinner .card { min-width: 290px; }
 .sinner .who { flex: 1 1 auto; }
+.stats { align-items: baseline; }
