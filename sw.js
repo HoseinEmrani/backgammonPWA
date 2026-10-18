@@ -1,4 +1,4 @@
-const CACHE = 'backgammon-v4';
+const CACHE = 'backgammon-v5';
 const ASSETS = [
   './', 'index.html', 'style.css', 'engine.js', 'app.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
@@ -18,7 +18,7 @@ self.addEventListener('activate', (e) => {
 
 // Cache-first so the game always opens offline; refresh the cache in the background.
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
   e.respondWith(
     caches.match(e.request, { ignoreSearch: true }).then((hit) => {
       const net = fetch(e.request).then((res) => {

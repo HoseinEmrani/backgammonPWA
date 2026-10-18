@@ -12,3 +12,6 @@ node test-engine.js           # rules tests
 
 ## License
 [PolyForm Noncommercial 1.0.0](LICENSE): free to use, modify and share for any non-commercial purpose; commercial use is not permitted.
+
+## Analytics (optional)
+Privacy-friendly, cookie-free [GoatCounter](https://www.goatcounter.com) (free for non-commercial use). Create a site, then set `ANALYTICS.goatcounter` in `app.js` to your site code. Tracked: page loads, installed-vs-browser launches, layout, and per finished game: result type (single/gammon/backgammon/resigned/double-passed), game length bucket, cube value, match finished. Events queue offline and send when back online. No names or move data are sent.

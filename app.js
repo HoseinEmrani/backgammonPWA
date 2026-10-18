@@ -523,6 +523,51 @@ function offerResign() {
   }, p);
 }
 
+/* ------------------------------------------------------------------ analytics (GoatCounter, cookie-free, optional)
+ * Set `goatcounter` to your site code (https://CODE.goatcounter.com) to switch it on. Leave '' to disable.
+ * Events are queued in localStorage while offline and sent once the device is back online. */
+const ANALYTICS = { goatcounter: 'backgammonpwa' };
+const KEY_Q = 'bgx.events.v1';
+function track(path, title, isEvent = true) {
+  if (!ANALYTICS.goatcounter) return;
+  try {
+    const q = JSON.parse(localStorage.getItem(KEY_Q) || '[]');
+    q.push({ p: path, t: title || '', e: isEvent, ts: Date.now() });
+    localStorage.setItem(KEY_Q, JSON.stringify(q.slice(-200)));
+  } catch (e) { /* ignore */ }
+  flushEvents();
+}
+let flushing = false;
+async function flushEvents() {
+  if (flushing || !ANALYTICS.goatcounter || !navigator.onLine) return;
+  flushing = true;
+  try {
+    let q = JSON.parse(localStorage.getItem(KEY_Q) || '[]');
+    while (q.length && navigator.onLine) {
+      const ev = q[0];
+      const u = new URL(`https://${ANALYTICS.goatcounter}.goatcounter.com/count`);
+      u.searchParams.set('p', ev.p); u.searchParams.set('t', ev.t);
+      if (ev.e) u.searchParams.set('e', 'true');
+      u.searchParams.set('s', `${screen.width},${screen.height},${devicePixelRatio || 1}`);
+      u.searchParams.set('rnd', Math.random().toString(36).slice(2));
+      await fetch(u, { mode: 'no-cors', keepalive: true });
+      q = JSON.parse(localStorage.getItem(KEY_Q) || '[]'); q.shift();
+      localStorage.setItem(KEY_Q, JSON.stringify(q));
+    }
+  } catch (e) { /* offline or blocked: keep the queue */ }
+  flushing = false;
+}
+window.addEventListener('online', flushEvents);
+function trackGameEnd(kind, pts, matchWon) {
+  const mins = Math.round((G.clock[0] + G.clock[1]) / 60000);
+  const bucket = mins < 5 ? '0-5' : mins < 10 ? '5-10' : mins < 20 ? '10-20' : mins < 30 ? '20-30' : '30+';
+  const how = kind === 'pass' ? 'double-passed' : kind === 'resign' ? 'resigned' : kind === 3 ? 'backgammon' : kind === 2 ? 'gammon' : 'single';
+  track(`game-finished/${how}`, `Game finished: ${how}`);
+  track(`game-length/${bucket}-min`, `Game length ${bucket} min`);
+  track(`game-cube/${G.cube.v}`, `Cube at ${G.cube.v}`);
+  if (matchWon) track('match-finished', 'Match finished');
+}
+
 /* ------------------------------------------------------------------ game end */
 function finishGame(w, kind) {
   clearTimeout(endT);
@@ -530,6 +575,7 @@ function finishGame(w, kind) {
   G.scores[w] += pts; G.phase = 'over'; G.rem = []; sel = null; showMarks(); updateHints();
   G.result = { w, pts, kind };
   const matchWon = S.matchTo && G.scores[w] >= S.matchTo;
+  trackGameEnd(kind, pts, matchWon);
   audio.win(); saveG(); renderHud();
   const how = kind === 'pass' ? 'Opponent passed the double' : kind === 'resign' ? 'Opponent resigned' : kind === 3 ? 'Backgammon!' : kind === 2 ? 'Gammon!' : 'Single game';
   setTimeout(() => modal((sh) => {
@@ -693,6 +739,10 @@ window.addEventListener('orientationchange', () => setTimeout(fit, 150));
 fit();
 setDiceFaces(); refreshDiceUsed(); updateHints(); applyMode();
 keepAwake();
+track(location.pathname, document.title, false);
+track(window.matchMedia('(display-mode: standalone)').matches || navigator.standalone ? 'launch/installed' : 'launch/browser', 'Launch');
+track(tableOn() ? 'layout/two-sided' : 'layout/single', 'Layout');
+flushEvents();
 if (G.phase === 'move' && G.rem.length && !G.legal.length) endT = setTimeout(endTurn, 1200);
 if (G.phase === 'over' && G.result) { /* show final board; Menu → New game */ }
 
